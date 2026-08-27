@@ -31,7 +31,13 @@
         .status { background: #1a2237; padding: 10px 14px; border-radius: 6px; margin-bottom: 16px; border: 1px solid #2a3349; color: #8b9bb5; font-size: 14px; }
         .status.success { color: #4ade80; border-color: #4ade80; }
         .status.error { color: #f87171; border-color: #f87171; }
-        @media (max-width:600px){ .match-selector, .form-grid, .filter-bar { flex-direction: column; align-items: stretch; } }
+        .commission-section { background: #1a2237; padding: 14px 18px; border-radius: 10px; margin-top: 16px; border: 1px solid #2a3349; }
+        .commission-section .row { display: flex; flex-wrap: wrap; gap: 16px; align-items: center; }
+        .commission-section label { color: #8b9bb5; font-weight: 600; }
+        .commission-section input, .commission-section select { background: #0b0e1a; border: 1px solid #2a3349; border-radius: 6px; padding: 6px 12px; color: #e6edf3; font-size: 14px; }
+        .commission-section .final-results { margin-top: 12px; display: none; }
+        .commission-section .final-results.visible { display: block; }
+        @media (max-width:600px){ .match-selector, .form-grid, .filter-bar, .commission-section .row { flex-direction: column; align-items: stretch; } }
     </style>
 </head>
 <body>
@@ -73,7 +79,7 @@
         <button id="refreshBtn" class="btn">⟳ Refresh</button>
     </div>
 
-    <!-- Table -->
+    <!-- Bet Table -->
     <div class="table-wrap">
         <table>
             <thead><tr>
@@ -93,12 +99,42 @@
         <div class="summary-card"><div class="label" id="teamALabel">Team A</div><div class="value" id="teamAExposure">0</div></div>
         <div class="summary-card"><div class="label" id="teamBLabel">Team B</div><div class="value" id="teamBExposure">0</div></div>
     </div>
-    <div class="table-wrap">
-        <table>
-            <thead><tr><th>Client</th><th>Stake</th><th id="teamAWinLabel">If A Wins</th><th id="teamBWinLabel">If B Wins</th></tr></thead>
-            <tbody id="clientSummaryBody"><tr><td colspan="4" style="text-align:center;color:#6b7b95;">No data</td></tr></tbody>
-        </table>
+
+    <!-- Client Summary (existing) -->
+    <div style="margin-top: 12px;">
+        <h3 style="color: #8b9bb5; font-size: 14px; margin-bottom: 8px;">📋 Client P&L Summary</h3>
+        <div class="table-wrap">
+            <table>
+                <thead><tr><th>Client</th><th>Stake</th><th id="teamAWinLabel">If A Wins</th><th id="teamBWinLabel">If B Wins</th></tr></thead>
+                <tbody id="clientSummaryBody"><tr><td colspan="4" style="text-align:center;color:#6b7b95;">No data</td></tr></tbody>
+            </table>
+        </div>
     </div>
+
+    <!-- NEW: Commission & Final Results -->
+    <div class="commission-section">
+        <div class="row">
+            <label>Select Winning Team:</label>
+            <select id="winningTeamSelect">
+                <option value="">-- Select --</option>
+                <option value="A">Team A</option>
+                <option value="B">Team B</option>
+            </select>
+            <label>Commission %:</label>
+            <input type="number" id="commissionInput" value="5" step="0.1" min="0" style="width:80px;" />
+            <button id="applyCommissionBtn" class="btn">Apply</button>
+        </div>
+        <div id="finalResultsContainer" class="final-results">
+            <h3 style="color:#8b9bb5; font-size:14px; margin-bottom:8px;">Final Results – <span id="winningTeamNameDisplay">Team A</span> Wins</h3>
+            <div class="table-wrap">
+                <table>
+                    <thead><tr><th>Client</th><th>Stake</th><th>Result</th></tr></thead>
+                    <tbody id="finalResultsBody"><tr><td colspan="3" style="text-align:center;color:#6b7b95;">Select a winning team</td></tr></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
 </div>
 
 <script>
@@ -128,6 +164,7 @@
     let currentFilter = 'all';
     let selectedType = 'Back';
 
+    // DOM refs
     const statusEl = document.getElementById('statusMsg');
     const matchSelect = document.getElementById('matchSelect');
     const teamAInput = document.getElementById('teamAInput');
@@ -154,6 +191,14 @@
     const teamAWinLabel = document.getElementById('teamAWinLabel');
     const teamBWinLabel = document.getElementById('teamBWinLabel');
     const clientSummaryBody = document.getElementById('clientSummaryBody');
+
+    // Commission & Final Results refs
+    const winningTeamSelect = document.getElementById('winningTeamSelect');
+    const commissionInput = document.getElementById('commissionInput');
+    const applyCommissionBtn = document.getElementById('applyCommissionBtn');
+    const finalResultsContainer = document.getElementById('finalResultsContainer');
+    const winningTeamNameDisplay = document.getElementById('winningTeamNameDisplay');
+    const finalResultsBody = document.getElementById('finalResultsBody');
 
     // ─── RENDER HELPERS ───
     function renderMatches() {
@@ -199,6 +244,7 @@
         renderBetsForMatch(matchId);
         renderClientSummary();
         renderSummary();
+        updateFinalResults(); // recompute final results
     }
 
     function clearMatchUI() {
@@ -216,6 +262,8 @@
         teamAExposureEl.textContent = '0';
         teamBExposureEl.textContent = '0';
         clientSummaryBody.innerHTML = '<tr><td colspan="4" style="text-align:center;color:#6b7b95;">Select a match</td></tr>';
+        finalResultsContainer.classList.remove('visible');
+        finalResultsBody.innerHTML = '<tr><td colspan="3" style="text-align:center;color:#6b7b95;">Select a match</td></tr>';
     }
 
     matchSelect.addEventListener('change', function() {
@@ -243,7 +291,6 @@
                 return;
             }
         }
-        // New match
         const newId = allMatches.length ? Math.max(...allMatches.map(m => m.id)) + 1 : 1;
         const newMatch = { id: newId, team_a: teamA, team_b: teamB };
         allMatches.push(newMatch);
@@ -266,7 +313,7 @@
         alert('✅ Match deleted.');
     });
 
-    // ─── BETS (FIXED: show profit/loss relative to selected team) ───
+    // ─── BETS RENDER ───
     function renderBetsForMatch(matchId) {
         const filtered = allBets.filter(b => b.match_id === matchId && (currentFilter === 'all' || b.client_name === currentFilter));
         if (filtered.length === 0) {
@@ -275,14 +322,13 @@
         }
         let html = '';
         filtered.forEach((bet, idx) => {
-            // If the selected team wins vs loses
             let ifSelectedWins, ifSelectedLoses;
             if (bet.type === 'Back') {
-                ifSelectedWins = bet.amount * bet.rate;   // positive profit
-                ifSelectedLoses = -bet.amount;            // lose stake
+                ifSelectedWins = bet.amount * bet.rate;
+                ifSelectedLoses = -bet.amount;
             } else { // Lay
-                ifSelectedWins = -(bet.amount * bet.rate); // lose liability
-                ifSelectedLoses = bet.amount;              // win stake
+                ifSelectedWins = -(bet.amount * bet.rate);
+                ifSelectedLoses = bet.amount;
             }
             const winClass = ifSelectedWins >= 0 ? 'green' : 'red';
             const loseClass = ifSelectedLoses >= 0 ? 'green' : 'red';
@@ -308,13 +354,17 @@
                 if (!confirm('Remove this bet?')) return;
                 allBets = allBets.filter(b => b.id !== id);
                 saveData();
-                if (currentMatchId) renderBetsForMatch(currentMatchId);
-                renderSummary();
-                renderClientSummary();
+                if (currentMatchId) {
+                    renderBetsForMatch(currentMatchId);
+                    renderClientSummary();
+                    renderSummary();
+                    updateFinalResults();
+                }
             });
         });
     }
 
+    // ─── SUMMARY ───
     function renderSummary() {
         const match = allMatches.find(m => m.id === currentMatchId);
         if (!match) { teamAExposureEl.textContent='0'; teamBExposureEl.textContent='0'; return; }
@@ -342,9 +392,10 @@
         teamBExposureEl.className = 'value' + (bExp>=0?' green':' red');
     }
 
-    function renderClientSummary() {
+    // ─── CLIENT SUMMARY ───
+    function getClientTotals() {
         const match = allMatches.find(m => m.id === currentMatchId);
-        if (!match) { clientSummaryBody.innerHTML = '<tr><td colspan="4" style="text-align:center;color:#6b7b95;">Select a match</td></tr>'; return; }
+        if (!match) return {};
         const teamA = match.team_a, teamB = match.team_b;
         const matchBets = allBets.filter(b => b.match_id === currentMatchId);
         const clientTotals = {};
@@ -353,23 +404,33 @@
             const amt = Number(b.amount);
             clientTotals[b.client_name].stake += amt;
             if (b.team === teamA) {
-                if (b.type === 'Back') { 
-                    clientTotals[b.client_name].pA += amt * b.rate; 
-                    clientTotals[b.client_name].pB -= amt; 
-                } else { // Lay
-                    clientTotals[b.client_name].pA -= amt * b.rate; 
-                    clientTotals[b.client_name].pB += amt; 
+                if (b.type === 'Back') {
+                    clientTotals[b.client_name].pA += amt * b.rate;
+                    clientTotals[b.client_name].pB -= amt;
+                } else {
+                    clientTotals[b.client_name].pA -= amt * b.rate;
+                    clientTotals[b.client_name].pB += amt;
                 }
-            } else { // teamB
-                if (b.type === 'Back') { 
-                    clientTotals[b.client_name].pB += amt * b.rate; 
-                    clientTotals[b.client_name].pA -= amt; 
-                } else { // Lay
-                    clientTotals[b.client_name].pB -= amt * b.rate; 
-                    clientTotals[b.client_name].pA += amt; 
+            } else {
+                if (b.type === 'Back') {
+                    clientTotals[b.client_name].pB += amt * b.rate;
+                    clientTotals[b.client_name].pA -= amt;
+                } else {
+                    clientTotals[b.client_name].pB -= amt * b.rate;
+                    clientTotals[b.client_name].pA += amt;
                 }
             }
         });
+        return clientTotals;
+    }
+
+    function renderClientSummary() {
+        const match = allMatches.find(m => m.id === currentMatchId);
+        if (!match) {
+            clientSummaryBody.innerHTML = '<tr><td colspan="4" style="text-align:center;color:#6b7b95;">Select a match</td></tr>';
+            return;
+        }
+        const clientTotals = getClientTotals();
         let html = '';
         for (const name in clientTotals) {
             const t = clientTotals[name];
@@ -380,6 +441,55 @@
         if (!html) html = '<tr><td colspan="4" style="text-align:center;color:#6b7b95;">No bets</td></tr>';
         clientSummaryBody.innerHTML = html;
     }
+
+    // ─── COMMISSION & FINAL RESULTS ───
+    function updateFinalResults() {
+        const match = allMatches.find(m => m.id === currentMatchId);
+        if (!match) {
+            finalResultsContainer.classList.remove('visible');
+            return;
+        }
+        const winningTeam = winningTeamSelect.value;
+        if (!winningTeam) {
+            finalResultsContainer.classList.remove('visible');
+            return;
+        }
+        const commission = parseFloat(commissionInput.value) || 0;
+        const teamA = match.team_a, teamB = match.team_b;
+        const clientTotals = getClientTotals();
+
+        // Determine which column to use
+        const useTeamA = (winningTeam === 'A');
+        const winningName = useTeamA ? teamA : teamB;
+
+        let html = '';
+        let anyResult = false;
+        for (const name in clientTotals) {
+            const t = clientTotals[name];
+            let result = useTeamA ? t.pA : t.pB;
+            // Apply commission only if result is negative
+            if (result < 0 && commission > 0) {
+                const reduction = Math.abs(result) * (commission / 100);
+                result = result + reduction; // e.g., -20825 + 1041.25 = -19783.75
+            }
+            const cls = result >= 0 ? 'green' : 'red';
+            const sign = result >= 0 ? '+' : '';
+            html += `<tr><td><strong>${name}</strong></td><td>${t.stake.toLocaleString()}</td>
+                <td class="${cls}">${sign}${result.toLocaleString()}</td></tr>`;
+            anyResult = true;
+        }
+        if (!anyResult) {
+            html = '<tr><td colspan="3" style="text-align:center;color:#6b7b95;">No bets for this match</td></tr>';
+        }
+        finalResultsBody.innerHTML = html;
+        winningTeamNameDisplay.textContent = winningName;
+        finalResultsContainer.classList.add('visible');
+    }
+
+    // ─── EVENTS FOR COMMISSION SECTION ───
+    winningTeamSelect.addEventListener('change', updateFinalResults);
+    commissionInput.addEventListener('input', updateFinalResults);
+    applyCommissionBtn.addEventListener('click', updateFinalResults);
 
     // ─── ADD BET ───
     addBtn.addEventListener('click', function() {
@@ -393,7 +503,6 @@
         if (isNaN(rate) || rate<=0) { alert('Enter a valid positive rate.'); return; }
         if (isNaN(amount) || amount<=0) { alert('Enter a valid positive amount.'); return; }
 
-        // Add client if new
         if (!allClients.find(c => c.name === clientName)) {
             allClients.push({ id: allClients.length ? Math.max(...allClients.map(c => c.id)) + 1 : 1, name: clientName });
             renderCustomers();
@@ -413,8 +522,9 @@
         allBets.push(bet);
         saveData();
         renderBetsForMatch(currentMatchId);
-        renderSummary();
         renderClientSummary();
+        renderSummary();
+        updateFinalResults();
         rateInput.value = ''; amountInput.value = ''; newCustomerInput.value = ''; customerSelect.value = ''; teamSelect.value = '';
         alert('✅ Bet added!');
     });
@@ -422,12 +532,20 @@
     // ─── FILTER & CLEAR ───
     filterSelect.addEventListener('change', function() {
         currentFilter = this.value;
-        if (currentMatchId) renderBetsForMatch(currentMatchId);
+        if (currentMatchId) {
+            renderBetsForMatch(currentMatchId);
+            renderClientSummary();
+            updateFinalResults();
+        }
     });
     clearFilterBtn.addEventListener('click', function() {
         filterSelect.value = 'all';
         currentFilter = 'all';
-        if (currentMatchId) renderBetsForMatch(currentMatchId);
+        if (currentMatchId) {
+            renderBetsForMatch(currentMatchId);
+            renderClientSummary();
+            updateFinalResults();
+        }
     });
     clearAllBtn.addEventListener('click', function() {
         if (!currentMatchId) return;
@@ -435,8 +553,9 @@
         allBets = allBets.filter(b => b.match_id !== currentMatchId);
         saveData();
         renderBetsForMatch(currentMatchId);
-        renderSummary();
         renderClientSummary();
+        renderSummary();
+        updateFinalResults();
     });
     refreshBtn.addEventListener('click', function() {
         location.reload();

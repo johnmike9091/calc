@@ -37,8 +37,8 @@
 <body>
 <div class="app">
     <h1>AW Calculator</h1>
-    <div class="subtitle">Local Storage – data stays in your browser</div>
-    <div id="statusMsg" class="status success"> Ready – data saved locally</div>
+    <div class="subtitle">Local Storage – clear P&L per selected team</div>
+    <div id="statusMsg" class="status success">✅ Ready</div>
 
     <!-- Match Management -->
     <div class="match-selector">
@@ -46,8 +46,8 @@
         <select id="matchSelect" style="min-width:180px;"><option value="">-- Select --</option></select>
         <input type="text" id="teamAInput" placeholder="Team A" style="width:100px;" />
         <input type="text" id="teamBInput" placeholder="Team B" style="width:100px;" />
-        <button id="saveMatchBtn" class="btn"> Save</button>
-        <button id="deleteMatchBtn" class="btn btn-danger"> Delete</button>
+        <button id="saveMatchBtn" class="btn">💾 Save</button>
+        <button id="deleteMatchBtn" class="btn btn-danger">🗑 Delete</button>
     </div>
 
     <!-- Add Bet Form -->
@@ -61,7 +61,7 @@
             <button class="btn active" data-type="Back">Back</button>
             <button class="btn" data-type="Lay">Lay</button>
         </div>
-        <button id="addBetBtn" class="btn"> Add Bet</button>
+        <button id="addBetBtn" class="btn">➕ Add Bet</button>
     </div>
 
     <!-- Filter -->
@@ -70,13 +70,18 @@
         <select id="filterSelect"><option value="all">All clients</option></select>
         <button id="clearFilterBtn" class="btn">Clear</button>
         <button id="clearAllBtn" class="btn btn-danger">Clear All Bets</button>
-        <button id="refreshBtn" class="btn"> Refresh</button>
+        <button id="refreshBtn" class="btn">⟳ Refresh</button>
     </div>
 
     <!-- Table -->
     <div class="table-wrap">
         <table>
-            <thead><tr><th>#</th><th>Client</th><th>Team</th><th>Rate</th><th>Amount</th><th>Type</th><th>P/L Win</th><th>P/L Lose</th><th>Day</th><th></th></tr></thead>
+            <thead><tr>
+                <th>#</th><th>Client</th><th>Team</th><th>Rate</th><th>Amount</th><th>Type</th>
+                <th>If Selected Wins</th>
+                <th>If Selected Loses</th>
+                <th>Day</th><th></th>
+            </tr></thead>
             <tbody id="betsTableBody"><tr><td colspan="10" style="text-align:center;color:#6b7b95;">No bets</td></tr></tbody>
         </table>
     </div>
@@ -97,7 +102,7 @@
 </div>
 
 <script>
-    //  LOCAL STORAGE 
+    // ─── LOCAL STORAGE ───
     function loadData() {
         try {
             return {
@@ -114,7 +119,7 @@
         localStorage.setItem('aw_bets', JSON.stringify(allBets));
     }
 
-    //  STATE 
+    // ─── STATE ───
     let data = loadData();
     let allMatches = data.matches;
     let allClients = data.clients;
@@ -150,7 +155,7 @@
     const teamBWinLabel = document.getElementById('teamBWinLabel');
     const clientSummaryBody = document.getElementById('clientSummaryBody');
 
-    //  RENDER HELPERS 
+    // ─── RENDER HELPERS ───
     function renderMatches() {
         matchSelect.innerHTML = '<option value="">-- Select --</option>';
         allMatches.forEach(m => {
@@ -218,7 +223,7 @@
         else clearMatchUI();
     });
 
-    //  SAVE MATCH 
+    // ─── SAVE MATCH ───
     saveMatchBtn.addEventListener('click', function() {
         const teamA = teamAInput.value.trim();
         const teamB = teamBInput.value.trim();
@@ -234,7 +239,7 @@
                 renderMatches();
                 matchSelect.value = currentMatchId;
                 updateMatchUI(currentMatchId);
-                alert(' Match updated!');
+                alert('✅ Match updated!');
                 return;
             }
         }
@@ -246,7 +251,7 @@
         renderMatches();
         matchSelect.value = newId;
         updateMatchUI(newId);
-        alert(' Match created!');
+        alert('✅ Match created!');
     });
 
     deleteMatchBtn.addEventListener('click', function() {
@@ -258,10 +263,10 @@
         saveData();
         renderMatches();
         clearMatchUI();
-        alert(' Match deleted.');
+        alert('✅ Match deleted.');
     });
 
-    //  BETS (FIXED CALCULATION) 
+    // ─── BETS (FIXED: show profit/loss relative to selected team) ───
     function renderBetsForMatch(matchId) {
         const filtered = allBets.filter(b => b.match_id === matchId && (currentFilter === 'all' || b.client_name === currentFilter));
         if (filtered.length === 0) {
@@ -270,17 +275,17 @@
         }
         let html = '';
         filtered.forEach((bet, idx) => {
-            // Correct P&L with negative signs for losses
-            let profitIfWins, lossIfLoses;
+            // If the selected team wins vs loses
+            let ifSelectedWins, ifSelectedLoses;
             if (bet.type === 'Back') {
-                profitIfWins = bet.amount * bet.rate;      // positive
-                lossIfLoses = -bet.amount;                 // negative (stake lost)
+                ifSelectedWins = bet.amount * bet.rate;   // positive profit
+                ifSelectedLoses = -bet.amount;            // lose stake
             } else { // Lay
-                profitIfWins = bet.amount;                 // positive (you win the stake)
-                lossIfLoses = -(bet.amount * bet.rate);    // negative (liability)
+                ifSelectedWins = -(bet.amount * bet.rate); // lose liability
+                ifSelectedLoses = bet.amount;              // win stake
             }
-            const winClass = profitIfWins >= 0 ? 'green' : 'red';
-            const loseClass = lossIfLoses >= 0 ? 'green' : 'red';
+            const winClass = ifSelectedWins >= 0 ? 'green' : 'red';
+            const loseClass = ifSelectedLoses >= 0 ? 'green' : 'red';
             html += `
                 <tr>
                     <td>${idx+1}</td>
@@ -289,10 +294,10 @@
                     <td>${bet.rate.toFixed(4)}</td>
                     <td>${Number(bet.amount).toLocaleString()}</td>
                     <td>${bet.type}</td>
-                    <td class="${winClass}">${profitIfWins >= 0 ? '+' : ''}${profitIfWins.toLocaleString()}</td>
-                    <td class="${loseClass}">${lossIfLoses >= 0 ? '+' : ''}${lossIfLoses.toLocaleString()}</td>
+                    <td class="${winClass}">${ifSelectedWins >= 0 ? '+' : ''}${ifSelectedWins.toLocaleString()}</td>
+                    <td class="${loseClass}">${ifSelectedLoses >= 0 ? '+' : ''}${ifSelectedLoses.toLocaleString()}</td>
                     <td>${bet.day||1}</td>
-                    <td><button class="remove-btn" data-id="${bet.id}"></button></td>
+                    <td><button class="remove-btn" data-id="${bet.id}">✕</button></td>
                 </tr>
             `;
         });
@@ -318,11 +323,10 @@
         const matchBets = allBets.filter(b => b.match_id === currentMatchId);
         matchBets.forEach(b => {
             const profit = (b.type === 'Back') ? b.amount * b.rate : b.amount;
-            const loss = (b.type === 'Back') ? b.amount : b.amount * b.rate; // these are positive amounts, later we'll negate in exposure?
-            // Actually exposure calculation uses lay liability minus back profit. So we keep positive.
+            const loss = (b.type === 'Back') ? b.amount : b.amount * b.rate;
             if (b.team === teamA) {
                 if (b.type === 'Back') aBack += profit;
-                else aLay += loss; // liability amount (positive)
+                else aLay += loss;
             } else {
                 if (b.type === 'Back') bBack += profit;
                 else bLay += loss;
@@ -349,11 +353,21 @@
             const amt = Number(b.amount);
             clientTotals[b.client_name].stake += amt;
             if (b.team === teamA) {
-                if (b.type === 'Back') { clientTotals[b.client_name].pA += amt * b.rate; clientTotals[b.client_name].pB -= amt; }
-                else { clientTotals[b.client_name].pA -= amt * b.rate; clientTotals[b.client_name].pB += amt; }
-            } else {
-                if (b.type === 'Back') { clientTotals[b.client_name].pB += amt * b.rate; clientTotals[b.client_name].pA -= amt; }
-                else { clientTotals[b.client_name].pB -= amt * b.rate; clientTotals[b.client_name].pA += amt; }
+                if (b.type === 'Back') { 
+                    clientTotals[b.client_name].pA += amt * b.rate; 
+                    clientTotals[b.client_name].pB -= amt; 
+                } else { // Lay
+                    clientTotals[b.client_name].pA -= amt * b.rate; 
+                    clientTotals[b.client_name].pB += amt; 
+                }
+            } else { // teamB
+                if (b.type === 'Back') { 
+                    clientTotals[b.client_name].pB += amt * b.rate; 
+                    clientTotals[b.client_name].pA -= amt; 
+                } else { // Lay
+                    clientTotals[b.client_name].pB -= amt * b.rate; 
+                    clientTotals[b.client_name].pA += amt; 
+                }
             }
         });
         let html = '';
@@ -367,7 +381,7 @@
         clientSummaryBody.innerHTML = html;
     }
 
-    //  ADD BET 
+    // ─── ADD BET ───
     addBtn.addEventListener('click', function() {
         if (!currentMatchId) { alert('Select a match first.'); return; }
         let clientName = customerSelect.value || newCustomerInput.value.trim();
@@ -402,10 +416,10 @@
         renderSummary();
         renderClientSummary();
         rateInput.value = ''; amountInput.value = ''; newCustomerInput.value = ''; customerSelect.value = ''; teamSelect.value = '';
-        alert(' Bet added!');
+        alert('✅ Bet added!');
     });
 
-    //  FILTER & CLEAR 
+    // ─── FILTER & CLEAR ───
     filterSelect.addEventListener('change', function() {
         currentFilter = this.value;
         if (currentMatchId) renderBetsForMatch(currentMatchId);
@@ -428,7 +442,7 @@
         location.reload();
     });
 
-    //  TYPE TOGGLE 
+    // ─── TYPE TOGGLE ───
     document.querySelectorAll('#typeGroup .btn').forEach(btn => {
         btn.addEventListener('click', function() {
             document.querySelectorAll('#typeGroup .btn').forEach(b => b.classList.remove('active'));
@@ -437,7 +451,7 @@
         });
     });
 
-    //  INIT 
+    // ─── INIT ───
     renderMatches();
     renderCustomers();
     if (allMatches.length > 0) {

@@ -16,7 +16,10 @@
         .btn:hover { background: #3b5adf; }
         .btn-danger { background: #7f1d1d; color: #f87171; }
         .btn-danger:hover { background: #b91c1c; }
-        .btn-group .btn.active { background: #4f6ef7; border-color: #4f6ef7; }
+        .btn-back { background: #22c55e; }  /* green for Back */
+        .btn-back:hover { background: #16a34a; }
+        .btn-lay { background: #ef4444; }   /* red for Lay */
+        .btn-lay:hover { background: #dc2626; }
         .table-wrap { overflow-x: auto; margin-bottom: 16px; border: 1px solid #2a3349; border-radius: 10px; }
         table { width: 100%; border-collapse: collapse; background: #101624; }
         th, td { padding: 8px 12px; text-align: left; border-bottom: 1px solid #1e263b; }
@@ -56,18 +59,16 @@
         <button id="deleteMatchBtn" class="btn btn-danger">🗑 Delete</button>
     </div>
 
-    <!-- Add Bet Form -->
+    <!-- Add Bet Form (without toggle and Add button) -->
     <div class="form-grid">
         <select id="customerSelect"><option value="">Customer</option></select>
         <input type="text" id="newCustomerInput" placeholder="New customer" />
         <select id="teamSelect"><option value="">Team</option></select>
         <input type="number" id="rateInput" step="0.0001" placeholder="Rate (0.5000)" />
         <input type="number" id="amountInput" step="1" placeholder="Amount" />
-        <div class="btn-group" id="typeGroup">
-            <button class="btn active" data-type="Back">Back</button>
-            <button class="btn" data-type="Lay">Lay</button>
-        </div>
-        <button id="addBetBtn" class="btn">➕ Add Bet</button>
+        <!-- Two separate buttons: Back and Lay -->
+        <button id="backBetBtn" class="btn btn-back">Back Bet</button>
+        <button id="layBetBtn" class="btn btn-lay">Lay Bet</button>
     </div>
 
     <!-- Filter -->
@@ -113,7 +114,7 @@
         </div>
     </div>
 
-    <!-- NEW: Commission & Final Results -->
+    <!-- Commission & Final Results -->
     <div class="commission-section">
         <div class="row">
             <label>Select Winning Team:</label>
@@ -164,7 +165,6 @@
     let allBets = data.bets;
     let currentMatchId = null;
     let currentFilter = 'all';
-    let selectedType = 'Back';
 
     // DOM refs
     const statusEl = document.getElementById('statusMsg');
@@ -178,7 +178,8 @@
     const newCustomerInput = document.getElementById('newCustomerInput');
     const rateInput = document.getElementById('rateInput');
     const amountInput = document.getElementById('amountInput');
-    const addBtn = document.getElementById('addBetBtn');
+    const backBetBtn = document.getElementById('backBetBtn');
+    const layBetBtn = document.getElementById('layBetBtn');
     const filterSelect = document.getElementById('filterSelect');
     const clearFilterBtn = document.getElementById('clearFilterBtn');
     const clearAllBtn = document.getElementById('clearAllBtn');
@@ -376,7 +377,7 @@
         });
     }
 
-    // ─── SUMMARY (now includes per-team stake) ───
+    // ─── SUMMARY ───
     function renderSummary() {
         const match = allMatches.find(m => m.id === currentMatchId);
         if (!match) {
@@ -521,8 +522,8 @@
     commissionInput.addEventListener('input', updateFinalResults);
     applyCommissionBtn.addEventListener('click', updateFinalResults);
 
-    // ─── ADD BET ───
-    addBtn.addEventListener('click', function() {
+    // ─── ADD BET (shared function) ───
+    function addBetWithType(type) {
         if (!currentMatchId) { alert('Select a match first.'); return; }
         let clientName = customerSelect.value || newCustomerInput.value.trim();
         if (!clientName) { alert('Enter a customer name.'); return; }
@@ -546,7 +547,7 @@
             team: team,
             rate: rate,
             amount: amount,
-            type: selectedType,
+            type: type,
             day: 1
         };
         allBets.push(bet);
@@ -555,8 +556,18 @@
         renderClientSummary();
         renderSummary();
         updateFinalResults();
+        // Clear form fields (optional)
         rateInput.value = ''; amountInput.value = ''; newCustomerInput.value = ''; customerSelect.value = ''; teamSelect.value = '';
-        alert('✅ Bet added!');
+        alert(`✅ ${type} bet added!`);
+    }
+
+    // ─── EVENT LISTENERS FOR BACK/LAY BUTTONS ───
+    backBetBtn.addEventListener('click', function() {
+        addBetWithType('Back');
+    });
+
+    layBetBtn.addEventListener('click', function() {
+        addBetWithType('Lay');
     });
 
     // ─── FILTER & CLEAR ───
@@ -589,15 +600,6 @@
     });
     refreshBtn.addEventListener('click', function() {
         location.reload();
-    });
-
-    // ─── TYPE TOGGLE ───
-    document.querySelectorAll('#typeGroup .btn').forEach(btn => {
-        btn.addEventListener('click', function() {
-            document.querySelectorAll('#typeGroup .btn').forEach(b => b.classList.remove('active'));
-            this.classList.add('active');
-            selectedType = this.dataset.type;
-        });
     });
 
     // ─── INIT ───

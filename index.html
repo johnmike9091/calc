@@ -1,0 +1,441 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>AW Profile Calculator</title>
+    <style>
+        * { margin:0; padding:0; box-sizing:border-box; }
+        body { font-family: 'Segoe UI', Roboto, sans-serif; background: #0b0e1a; color: #e6edf3; min-height: 100vh; padding: 20px; display: flex; justify-content: center; }
+        .app { max-width: 1100px; width: 100%; background: #141a2b; border-radius: 16px; padding: 24px 28px; border: 1px solid #2a3349; }
+        h1 { font-size: 24px; margin-bottom: 4px; background: linear-gradient(135deg, #6c8cff, #a78bfa); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+        .subtitle { color: #8b9bb5; font-size: 14px; margin-bottom: 20px; border-bottom: 1px solid #2a3349; padding-bottom: 12px; }
+        .match-selector, .form-grid, .filter-bar { display: flex; flex-wrap: wrap; gap: 10px; background: #1e263b; padding: 14px 18px; border-radius: 10px; margin-bottom: 16px; border: 1px solid #2f3a52; align-items: center; }
+        .match-selector select, .match-selector input, .form-grid select, .form-grid input, .filter-bar select { background: #0b0e1a; border: 1px solid #2a3349; border-radius: 6px; padding: 6px 12px; color: #e6edf3; font-size: 14px; }
+        .btn { background: #4f6ef7; border: none; color: #fff; padding: 6px 16px; border-radius: 6px; cursor: pointer; font-weight: 600; }
+        .btn:hover { background: #3b5adf; }
+        .btn-danger { background: #7f1d1d; color: #f87171; }
+        .btn-danger:hover { background: #b91c1c; }
+        .btn-group .btn.active { background: #4f6ef7; border-color: #4f6ef7; }
+        .table-wrap { overflow-x: auto; margin-bottom: 16px; border: 1px solid #2a3349; border-radius: 10px; }
+        table { width: 100%; border-collapse: collapse; background: #101624; }
+        th, td { padding: 8px 12px; text-align: left; border-bottom: 1px solid #1e263b; }
+        .green { color: #4ade80; }
+        .red { color: #f87171; }
+        .remove-btn { background: transparent; border: none; color: #6b7b95; font-size: 18px; cursor: pointer; }
+        .remove-btn:hover { color: #f87171; }
+        .summary-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px,1fr)); gap: 10px; margin-bottom: 16px; }
+        .summary-card { background: #1a2237; padding: 12px 16px; border-radius: 10px; border: 1px solid #2a3349; }
+        .summary-card .label { font-size: 12px; color: #8b9bb5; }
+        .summary-card .value { font-size: 24px; font-weight: 700; }
+        .status { background: #1a2237; padding: 10px 14px; border-radius: 6px; margin-bottom: 16px; border: 1px solid #2a3349; color: #8b9bb5; font-size: 14px; }
+        .status.success { color: #4ade80; border-color: #4ade80; }
+        .status.error { color: #f87171; border-color: #f87171; }
+        @media (max-width:600px){ .match-selector, .form-grid, .filter-bar { flex-direction: column; align-items: stretch; } }
+    </style>
+</head>
+<body>
+<div class="app">
+    <h1>AW Calculator</h1>
+    <div class="subtitle">Local Storage – data stays in your browser</div>
+    <div id="statusMsg" class="status success">✅ Ready – data saved locally</div>
+
+    <!-- Match Management -->
+    <div class="match-selector">
+        <label style="color:#8b9bb5; font-weight:600; font-size:13px;">Match:</label>
+        <select id="matchSelect" style="min-width:180px;"><option value="">-- Select --</option></select>
+        <input type="text" id="teamAInput" placeholder="Team A" style="width:100px;" />
+        <input type="text" id="teamBInput" placeholder="Team B" style="width:100px;" />
+        <button id="saveMatchBtn" class="btn">💾 Save</button>
+        <button id="deleteMatchBtn" class="btn btn-danger">🗑 Delete</button>
+    </div>
+
+    <!-- Add Bet Form -->
+    <div class="form-grid">
+        <select id="customerSelect"><option value="">Customer</option></select>
+        <input type="text" id="newCustomerInput" placeholder="New customer" />
+        <select id="teamSelect"><option value="">Team</option></select>
+        <input type="number" id="rateInput" step="0.0001" placeholder="Rate (0.5000)" />
+        <input type="number" id="amountInput" step="1" placeholder="Amount" />
+        <div class="btn-group" id="typeGroup">
+            <button class="btn active" data-type="Back">Back</button>
+            <button class="btn" data-type="Lay">Lay</button>
+        </div>
+        <button id="addBetBtn" class="btn">➕ Add Bet</button>
+    </div>
+
+    <!-- Filter -->
+    <div class="filter-bar">
+        <label>Filter:</label>
+        <select id="filterSelect"><option value="all">All clients</option></select>
+        <button id="clearFilterBtn" class="btn">Clear</button>
+        <button id="clearAllBtn" class="btn btn-danger">Clear All Bets</button>
+        <button id="refreshBtn" class="btn">⟳ Refresh</button>
+    </div>
+
+    <!-- Table -->
+    <div class="table-wrap">
+        <table>
+            <thead><tr><th>#</th><th>Client</th><th>Team</th><th>Rate</th><th>Amount</th><th>Type</th><th>P/L Win</th><th>P/L Lose</th><th>Day</th><th></th></tr></thead>
+            <tbody id="betsTableBody"><tr><td colspan="10" style="text-align:center;color:#6b7b95;">No bets</td></tr></tbody>
+        </table>
+    </div>
+
+    <!-- Summary -->
+    <div class="summary-grid">
+        <div class="summary-card"><div class="label">Total Bets</div><div class="value" id="totalBets">0</div></div>
+        <div class="summary-card"><div class="label">Total Stake</div><div class="value" id="totalStake">0</div></div>
+        <div class="summary-card"><div class="label" id="teamALabel">Team A</div><div class="value" id="teamAExposure">0</div></div>
+        <div class="summary-card"><div class="label" id="teamBLabel">Team B</div><div class="value" id="teamBExposure">0</div></div>
+    </div>
+    <div class="table-wrap">
+        <table>
+            <thead><tr><th>Client</th><th>Stake</th><th id="teamAWinLabel">If A Wins</th><th id="teamBWinLabel">If B Wins</th></tr></thead>
+            <tbody id="clientSummaryBody"><tr><td colspan="4" style="text-align:center;color:#6b7b95;">No data</td></tr></tbody>
+        </table>
+    </div>
+</div>
+
+<script>
+    // ─── LOCAL STORAGE ───
+    function loadData() {
+        try {
+            return {
+                matches: JSON.parse(localStorage.getItem('aw_matches')) || [],
+                clients: JSON.parse(localStorage.getItem('aw_clients')) || [],
+                bets: JSON.parse(localStorage.getItem('aw_bets')) || []
+            };
+        } catch { return { matches: [], clients: [], bets: [] }; }
+    }
+
+    function saveData() {
+        localStorage.setItem('aw_matches', JSON.stringify(allMatches));
+        localStorage.setItem('aw_clients', JSON.stringify(allClients));
+        localStorage.setItem('aw_bets', JSON.stringify(allBets));
+    }
+
+    // ─── STATE ───
+    let data = loadData();
+    let allMatches = data.matches;
+    let allClients = data.clients;
+    let allBets = data.bets;
+    let currentMatchId = null;
+    let currentFilter = 'all';
+    let selectedType = 'Back';
+
+    const statusEl = document.getElementById('statusMsg');
+    const matchSelect = document.getElementById('matchSelect');
+    const teamAInput = document.getElementById('teamAInput');
+    const teamBInput = document.getElementById('teamBInput');
+    const saveMatchBtn = document.getElementById('saveMatchBtn');
+    const deleteMatchBtn = document.getElementById('deleteMatchBtn');
+    const teamSelect = document.getElementById('teamSelect');
+    const customerSelect = document.getElementById('customerSelect');
+    const newCustomerInput = document.getElementById('newCustomerInput');
+    const rateInput = document.getElementById('rateInput');
+    const amountInput = document.getElementById('amountInput');
+    const addBtn = document.getElementById('addBetBtn');
+    const filterSelect = document.getElementById('filterSelect');
+    const clearFilterBtn = document.getElementById('clearFilterBtn');
+    const clearAllBtn = document.getElementById('clearAllBtn');
+    const refreshBtn = document.getElementById('refreshBtn');
+    const tbody = document.getElementById('betsTableBody');
+    const totalBetsEl = document.getElementById('totalBets');
+    const totalStakeEl = document.getElementById('totalStake');
+    const teamAExposureEl = document.getElementById('teamAExposure');
+    const teamBExposureEl = document.getElementById('teamBExposure');
+    const teamALabel = document.getElementById('teamALabel');
+    const teamBLabel = document.getElementById('teamBLabel');
+    const teamAWinLabel = document.getElementById('teamAWinLabel');
+    const teamBWinLabel = document.getElementById('teamBWinLabel');
+    const clientSummaryBody = document.getElementById('clientSummaryBody');
+
+    // ─── RENDER HELPERS ───
+    function renderMatches() {
+        matchSelect.innerHTML = '<option value="">-- Select --</option>';
+        allMatches.forEach(m => {
+            const opt = document.createElement('option');
+            opt.value = m.id;
+            opt.textContent = `${m.team_a} vs ${m.team_b}`;
+            matchSelect.appendChild(opt);
+        });
+    }
+
+    function renderCustomers() {
+        const names = allClients.map(c => c.name);
+        customerSelect.innerHTML = '<option value="">Customer</option>';
+        names.forEach(name => {
+            const opt = document.createElement('option');
+            opt.value = name;
+            opt.textContent = name;
+            customerSelect.appendChild(opt);
+        });
+        filterSelect.innerHTML = '<option value="all">All clients</option>';
+        names.forEach(name => {
+            const opt = document.createElement('option');
+            opt.value = name;
+            opt.textContent = name;
+            filterSelect.appendChild(opt);
+        });
+        filterSelect.value = currentFilter;
+    }
+
+    function updateMatchUI(matchId) {
+        const match = allMatches.find(m => m.id == matchId);
+        if (!match) return;
+        currentMatchId = matchId;
+        teamAInput.value = match.team_a;
+        teamBInput.value = match.team_b;
+        teamALabel.textContent = match.team_a;
+        teamBLabel.textContent = match.team_b;
+        teamAWinLabel.textContent = `If ${match.team_a} Wins`;
+        teamBWinLabel.textContent = `If ${match.team_b} Wins`;
+        teamSelect.innerHTML = `<option value="">-- Select --</option><option value="${match.team_a}">${match.team_a}</option><option value="${match.team_b}">${match.team_b}</option>`;
+        renderBetsForMatch(matchId);
+        renderClientSummary();
+        renderSummary();
+    }
+
+    function clearMatchUI() {
+        currentMatchId = null;
+        teamAInput.value = '';
+        teamBInput.value = '';
+        teamALabel.textContent = 'Team A';
+        teamBLabel.textContent = 'Team B';
+        teamAWinLabel.textContent = 'If A Wins';
+        teamBWinLabel.textContent = 'If B Wins';
+        teamSelect.innerHTML = '<option value="">-- Select --</option>';
+        tbody.innerHTML = '<tr><td colspan="10" style="text-align:center;color:#6b7b95;">Select a match</td></tr>';
+        totalBetsEl.textContent = '0';
+        totalStakeEl.textContent = '0';
+        teamAExposureEl.textContent = '0';
+        teamBExposureEl.textContent = '0';
+        clientSummaryBody.innerHTML = '<tr><td colspan="4" style="text-align:center;color:#6b7b95;">Select a match</td></tr>';
+    }
+
+    matchSelect.addEventListener('change', function() {
+        if (this.value) updateMatchUI(parseInt(this.value));
+        else clearMatchUI();
+    });
+
+    // ─── SAVE MATCH ───
+    saveMatchBtn.addEventListener('click', function() {
+        const teamA = teamAInput.value.trim();
+        const teamB = teamBInput.value.trim();
+        if (!teamA || !teamB) { alert('Enter both team names.'); return; }
+        if (teamA === teamB) { alert('Team names must be different.'); return; }
+
+        if (currentMatchId) {
+            const idx = allMatches.findIndex(m => m.id === currentMatchId);
+            if (idx > -1) {
+                allMatches[idx].team_a = teamA;
+                allMatches[idx].team_b = teamB;
+                saveData();
+                renderMatches();
+                matchSelect.value = currentMatchId;
+                updateMatchUI(currentMatchId);
+                alert('✅ Match updated!');
+                return;
+            }
+        }
+        // New match
+        const newId = allMatches.length ? Math.max(...allMatches.map(m => m.id)) + 1 : 1;
+        const newMatch = { id: newId, team_a: teamA, team_b: teamB };
+        allMatches.push(newMatch);
+        saveData();
+        renderMatches();
+        matchSelect.value = newId;
+        updateMatchUI(newId);
+        alert('✅ Match created!');
+    });
+
+    deleteMatchBtn.addEventListener('click', function() {
+        if (!currentMatchId) return;
+        if (!confirm('Delete this match and all its bets?')) return;
+        const matchId = currentMatchId;
+        allMatches = allMatches.filter(m => m.id !== matchId);
+        allBets = allBets.filter(b => b.match_id !== matchId);
+        saveData();
+        renderMatches();
+        clearMatchUI();
+        alert('✅ Match deleted.');
+    });
+
+    // ─── BETS ───
+    function renderBetsForMatch(matchId) {
+        const filtered = allBets.filter(b => b.match_id === matchId && (currentFilter === 'all' || b.client_name === currentFilter));
+        if (filtered.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="10" style="text-align:center;color:#6b7b95;">No bets</td></tr>';
+            return;
+        }
+        let html = '';
+        filtered.forEach((bet, idx) => {
+            const profitIfWins = (bet.type === 'Back') ? bet.amount * bet.rate : bet.amount;
+            const lossIfLoses = (bet.type === 'Back') ? bet.amount : bet.amount * bet.rate;
+            html += `
+                <tr>
+                    <td>${idx+1}</td>
+                    <td>${bet.client_name}</td>
+                    <td>${bet.team}</td>
+                    <td>${bet.rate.toFixed(4)}</td>
+                    <td>${Number(bet.amount).toLocaleString()}</td>
+                    <td>${bet.type}</td>
+                    <td class="${profitIfWins>=0?'green':'red'}">${profitIfWins>=0?'+':''}${profitIfWins.toLocaleString()}</td>
+                    <td class="${lossIfLoses>=0?'green':'red'}">${lossIfLoses>=0?'+':''}${lossIfLoses.toLocaleString()}</td>
+                    <td>${bet.day||1}</td>
+                    <td><button class="remove-btn" data-id="${bet.id}">✕</button></td>
+                </tr>
+            `;
+        });
+        tbody.innerHTML = html;
+        document.querySelectorAll('.remove-btn').forEach(btn => {
+            btn.addEventListener('click', function() {
+                const id = parseInt(this.dataset.id);
+                if (!confirm('Remove this bet?')) return;
+                allBets = allBets.filter(b => b.id !== id);
+                saveData();
+                if (currentMatchId) renderBetsForMatch(currentMatchId);
+                renderSummary();
+                renderClientSummary();
+            });
+        });
+    }
+
+    function renderSummary() {
+        const match = allMatches.find(m => m.id === currentMatchId);
+        if (!match) { teamAExposureEl.textContent='0'; teamBExposureEl.textContent='0'; return; }
+        const teamA = match.team_a, teamB = match.team_b;
+        let aBack=0, aLay=0, bBack=0, bLay=0;
+        const matchBets = allBets.filter(b => b.match_id === currentMatchId);
+        matchBets.forEach(b => {
+            const profit = (b.type === 'Back') ? b.amount * b.rate : b.amount;
+            const loss = (b.type === 'Back') ? b.amount : b.amount * b.rate;
+            if (b.team === teamA) {
+                if (b.type === 'Back') aBack += profit;
+                else aLay += loss;
+            } else {
+                if (b.type === 'Back') bBack += profit;
+                else bLay += loss;
+            }
+        });
+        const aExp = aLay - aBack;
+        const bExp = bLay - bBack;
+        totalBetsEl.textContent = matchBets.length;
+        totalStakeEl.textContent = matchBets.reduce((s, b) => s + Number(b.amount), 0).toLocaleString();
+        teamAExposureEl.textContent = aExp.toLocaleString();
+        teamAExposureEl.className = 'value' + (aExp>=0?' green':' red');
+        teamBExposureEl.textContent = bExp.toLocaleString();
+        teamBExposureEl.className = 'value' + (bExp>=0?' green':' red');
+    }
+
+    function renderClientSummary() {
+        const match = allMatches.find(m => m.id === currentMatchId);
+        if (!match) { clientSummaryBody.innerHTML = '<tr><td colspan="4" style="text-align:center;color:#6b7b95;">Select a match</td></tr>'; return; }
+        const teamA = match.team_a, teamB = match.team_b;
+        const matchBets = allBets.filter(b => b.match_id === currentMatchId);
+        const clientTotals = {};
+        matchBets.forEach(b => {
+            if (!clientTotals[b.client_name]) clientTotals[b.client_name] = { stake: 0, pA: 0, pB: 0 };
+            const amt = Number(b.amount);
+            clientTotals[b.client_name].stake += amt;
+            if (b.team === teamA) {
+                if (b.type === 'Back') { clientTotals[b.client_name].pA += amt * b.rate; clientTotals[b.client_name].pB -= amt; }
+                else { clientTotals[b.client_name].pA -= amt * b.rate; clientTotals[b.client_name].pB += amt; }
+            } else {
+                if (b.type === 'Back') { clientTotals[b.client_name].pB += amt * b.rate; clientTotals[b.client_name].pA -= amt; }
+                else { clientTotals[b.client_name].pB -= amt * b.rate; clientTotals[b.client_name].pA += amt; }
+            }
+        });
+        let html = '';
+        for (const name in clientTotals) {
+            const t = clientTotals[name];
+            html += `<tr><td><strong>${name}</strong></td><td>${t.stake.toLocaleString()}</td>
+                <td class="${t.pA>=0?'green':'red'}">${t.pA>=0?'+':''}${t.pA.toLocaleString()}</td>
+                <td class="${t.pB>=0?'green':'red'}">${t.pB>=0?'+':''}${t.pB.toLocaleString()}</td></tr>`;
+        }
+        if (!html) html = '<tr><td colspan="4" style="text-align:center;color:#6b7b95;">No bets</td></tr>';
+        clientSummaryBody.innerHTML = html;
+    }
+
+    // ─── ADD BET ───
+    addBtn.addEventListener('click', function() {
+        if (!currentMatchId) { alert('Select a match first.'); return; }
+        let clientName = customerSelect.value || newCustomerInput.value.trim();
+        if (!clientName) { alert('Enter a customer name.'); return; }
+        const team = teamSelect.value;
+        if (!team) { alert('Select a team.'); return; }
+        const rate = parseFloat(rateInput.value);
+        const amount = parseFloat(amountInput.value);
+        if (isNaN(rate) || rate<=0) { alert('Enter a valid positive rate.'); return; }
+        if (isNaN(amount) || amount<=0) { alert('Enter a valid positive amount.'); return; }
+
+        // Add client if new
+        if (!allClients.find(c => c.name === clientName)) {
+            allClients.push({ id: allClients.length ? Math.max(...allClients.map(c => c.id)) + 1 : 1, name: clientName });
+            renderCustomers();
+        }
+
+        const newId = allBets.length ? Math.max(...allBets.map(b => b.id)) + 1 : 1;
+        const bet = {
+            id: newId,
+            match_id: currentMatchId,
+            client_name: clientName,
+            team: team,
+            rate: rate,
+            amount: amount,
+            type: selectedType,
+            day: 1
+        };
+        allBets.push(bet);
+        saveData();
+        renderBetsForMatch(currentMatchId);
+        renderSummary();
+        renderClientSummary();
+        rateInput.value = ''; amountInput.value = ''; newCustomerInput.value = ''; customerSelect.value = ''; teamSelect.value = '';
+        alert('✅ Bet added!');
+    });
+
+    // ─── FILTER & CLEAR ───
+    filterSelect.addEventListener('change', function() {
+        currentFilter = this.value;
+        if (currentMatchId) renderBetsForMatch(currentMatchId);
+    });
+    clearFilterBtn.addEventListener('click', function() {
+        filterSelect.value = 'all';
+        currentFilter = 'all';
+        if (currentMatchId) renderBetsForMatch(currentMatchId);
+    });
+    clearAllBtn.addEventListener('click', function() {
+        if (!currentMatchId) return;
+        if (!confirm('Delete all bets for this match?')) return;
+        allBets = allBets.filter(b => b.match_id !== currentMatchId);
+        saveData();
+        renderBetsForMatch(currentMatchId);
+        renderSummary();
+        renderClientSummary();
+    });
+    refreshBtn.addEventListener('click', function() {
+        location.reload();
+    });
+
+    // ─── TYPE TOGGLE ───
+    document.querySelectorAll('#typeGroup .btn').forEach(btn => {
+        btn.addEventListener('click', function() {
+            document.querySelectorAll('#typeGroup .btn').forEach(b => b.classList.remove('active'));
+            this.classList.add('active');
+            selectedType = this.dataset.type;
+        });
+    });
+
+    // ─── INIT ───
+    renderMatches();
+    renderCustomers();
+    if (allMatches.length > 0) {
+        matchSelect.value = allMatches[0].id;
+        updateMatchUI(allMatches[0].id);
+    } else {
+        clearMatchUI();
+    }
+</script>
+</body>
+</html>

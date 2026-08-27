@@ -38,7 +38,7 @@
 <div class="app">
     <h1>AW Calculator</h1>
     <div class="subtitle">Local Storage – data stays in your browser</div>
-    <div id="statusMsg" class="status success">✅ Ready – data saved locally</div>
+    <div id="statusMsg" class="status success"> Ready – data saved locally</div>
 
     <!-- Match Management -->
     <div class="match-selector">
@@ -46,8 +46,8 @@
         <select id="matchSelect" style="min-width:180px;"><option value="">-- Select --</option></select>
         <input type="text" id="teamAInput" placeholder="Team A" style="width:100px;" />
         <input type="text" id="teamBInput" placeholder="Team B" style="width:100px;" />
-        <button id="saveMatchBtn" class="btn">💾 Save</button>
-        <button id="deleteMatchBtn" class="btn btn-danger">🗑 Delete</button>
+        <button id="saveMatchBtn" class="btn"> Save</button>
+        <button id="deleteMatchBtn" class="btn btn-danger"> Delete</button>
     </div>
 
     <!-- Add Bet Form -->
@@ -61,7 +61,7 @@
             <button class="btn active" data-type="Back">Back</button>
             <button class="btn" data-type="Lay">Lay</button>
         </div>
-        <button id="addBetBtn" class="btn">➕ Add Bet</button>
+        <button id="addBetBtn" class="btn"> Add Bet</button>
     </div>
 
     <!-- Filter -->
@@ -70,7 +70,7 @@
         <select id="filterSelect"><option value="all">All clients</option></select>
         <button id="clearFilterBtn" class="btn">Clear</button>
         <button id="clearAllBtn" class="btn btn-danger">Clear All Bets</button>
-        <button id="refreshBtn" class="btn">⟳ Refresh</button>
+        <button id="refreshBtn" class="btn"> Refresh</button>
     </div>
 
     <!-- Table -->
@@ -97,7 +97,7 @@
 </div>
 
 <script>
-    // ─── LOCAL STORAGE ───
+    //  LOCAL STORAGE 
     function loadData() {
         try {
             return {
@@ -114,7 +114,7 @@
         localStorage.setItem('aw_bets', JSON.stringify(allBets));
     }
 
-    // ─── STATE ───
+    //  STATE 
     let data = loadData();
     let allMatches = data.matches;
     let allClients = data.clients;
@@ -150,7 +150,7 @@
     const teamBWinLabel = document.getElementById('teamBWinLabel');
     const clientSummaryBody = document.getElementById('clientSummaryBody');
 
-    // ─── RENDER HELPERS ───
+    //  RENDER HELPERS 
     function renderMatches() {
         matchSelect.innerHTML = '<option value="">-- Select --</option>';
         allMatches.forEach(m => {
@@ -218,7 +218,7 @@
         else clearMatchUI();
     });
 
-    // ─── SAVE MATCH ───
+    //  SAVE MATCH 
     saveMatchBtn.addEventListener('click', function() {
         const teamA = teamAInput.value.trim();
         const teamB = teamBInput.value.trim();
@@ -234,7 +234,7 @@
                 renderMatches();
                 matchSelect.value = currentMatchId;
                 updateMatchUI(currentMatchId);
-                alert('✅ Match updated!');
+                alert(' Match updated!');
                 return;
             }
         }
@@ -246,7 +246,7 @@
         renderMatches();
         matchSelect.value = newId;
         updateMatchUI(newId);
-        alert('✅ Match created!');
+        alert(' Match created!');
     });
 
     deleteMatchBtn.addEventListener('click', function() {
@@ -258,10 +258,10 @@
         saveData();
         renderMatches();
         clearMatchUI();
-        alert('✅ Match deleted.');
+        alert(' Match deleted.');
     });
 
-    // ─── BETS ───
+    //  BETS (FIXED CALCULATION) 
     function renderBetsForMatch(matchId) {
         const filtered = allBets.filter(b => b.match_id === matchId && (currentFilter === 'all' || b.client_name === currentFilter));
         if (filtered.length === 0) {
@@ -270,8 +270,17 @@
         }
         let html = '';
         filtered.forEach((bet, idx) => {
-            const profitIfWins = (bet.type === 'Back') ? bet.amount * bet.rate : bet.amount;
-            const lossIfLoses = (bet.type === 'Back') ? bet.amount : bet.amount * bet.rate;
+            // Correct P&L with negative signs for losses
+            let profitIfWins, lossIfLoses;
+            if (bet.type === 'Back') {
+                profitIfWins = bet.amount * bet.rate;      // positive
+                lossIfLoses = -bet.amount;                 // negative (stake lost)
+            } else { // Lay
+                profitIfWins = bet.amount;                 // positive (you win the stake)
+                lossIfLoses = -(bet.amount * bet.rate);    // negative (liability)
+            }
+            const winClass = profitIfWins >= 0 ? 'green' : 'red';
+            const loseClass = lossIfLoses >= 0 ? 'green' : 'red';
             html += `
                 <tr>
                     <td>${idx+1}</td>
@@ -280,10 +289,10 @@
                     <td>${bet.rate.toFixed(4)}</td>
                     <td>${Number(bet.amount).toLocaleString()}</td>
                     <td>${bet.type}</td>
-                    <td class="${profitIfWins>=0?'green':'red'}">${profitIfWins>=0?'+':''}${profitIfWins.toLocaleString()}</td>
-                    <td class="${lossIfLoses>=0?'green':'red'}">${lossIfLoses>=0?'+':''}${lossIfLoses.toLocaleString()}</td>
+                    <td class="${winClass}">${profitIfWins >= 0 ? '+' : ''}${profitIfWins.toLocaleString()}</td>
+                    <td class="${loseClass}">${lossIfLoses >= 0 ? '+' : ''}${lossIfLoses.toLocaleString()}</td>
                     <td>${bet.day||1}</td>
-                    <td><button class="remove-btn" data-id="${bet.id}">✕</button></td>
+                    <td><button class="remove-btn" data-id="${bet.id}"></button></td>
                 </tr>
             `;
         });
@@ -309,10 +318,11 @@
         const matchBets = allBets.filter(b => b.match_id === currentMatchId);
         matchBets.forEach(b => {
             const profit = (b.type === 'Back') ? b.amount * b.rate : b.amount;
-            const loss = (b.type === 'Back') ? b.amount : b.amount * b.rate;
+            const loss = (b.type === 'Back') ? b.amount : b.amount * b.rate; // these are positive amounts, later we'll negate in exposure?
+            // Actually exposure calculation uses lay liability minus back profit. So we keep positive.
             if (b.team === teamA) {
                 if (b.type === 'Back') aBack += profit;
-                else aLay += loss;
+                else aLay += loss; // liability amount (positive)
             } else {
                 if (b.type === 'Back') bBack += profit;
                 else bLay += loss;
@@ -357,7 +367,7 @@
         clientSummaryBody.innerHTML = html;
     }
 
-    // ─── ADD BET ───
+    //  ADD BET 
     addBtn.addEventListener('click', function() {
         if (!currentMatchId) { alert('Select a match first.'); return; }
         let clientName = customerSelect.value || newCustomerInput.value.trim();
@@ -392,10 +402,10 @@
         renderSummary();
         renderClientSummary();
         rateInput.value = ''; amountInput.value = ''; newCustomerInput.value = ''; customerSelect.value = ''; teamSelect.value = '';
-        alert('✅ Bet added!');
+        alert(' Bet added!');
     });
 
-    // ─── FILTER & CLEAR ───
+    //  FILTER & CLEAR 
     filterSelect.addEventListener('change', function() {
         currentFilter = this.value;
         if (currentMatchId) renderBetsForMatch(currentMatchId);
@@ -418,7 +428,7 @@
         location.reload();
     });
 
-    // ─── TYPE TOGGLE ───
+    //  TYPE TOGGLE 
     document.querySelectorAll('#typeGroup .btn').forEach(btn => {
         btn.addEventListener('click', function() {
             document.querySelectorAll('#typeGroup .btn').forEach(b => b.classList.remove('active'));
@@ -427,7 +437,7 @@
         });
     });
 
-    // ─── INIT ───
+    //  INIT 
     renderMatches();
     renderCustomers();
     if (allMatches.length > 0) {

@@ -16,9 +16,9 @@
         .btn:hover { background: #3b5adf; }
         .btn-danger { background: #7f1d1d; color: #f87171; }
         .btn-danger:hover { background: #b91c1c; }
-        .btn-back { background: #22c55e; }  /* green for Back */
+        .btn-back { background: #22c55e; }
         .btn-back:hover { background: #16a34a; }
-        .btn-lay { background: #ef4444; }   /* red for Lay */
+        .btn-lay { background: #ef4444; }
         .btn-lay:hover { background: #dc2626; }
         .table-wrap { overflow-x: auto; margin-bottom: 16px; border: 1px solid #2a3349; border-radius: 10px; }
         table { width: 100%; border-collapse: collapse; background: #101624; }
@@ -66,7 +66,6 @@
         <select id="teamSelect"><option value="">Team</option></select>
         <input type="number" id="rateInput" step="0.0001" placeholder="Rate (0.5000)" />
         <input type="number" id="amountInput" step="1" placeholder="Amount" />
-        <!-- Two separate buttons: Back and Lay -->
         <button id="backBetBtn" class="btn btn-back">Back Bet</button>
         <button id="layBetBtn" class="btn btn-lay">Lay Bet</button>
     </div>
@@ -103,7 +102,7 @@
         <div class="summary-card"><div class="label" id="teamBLabel">Team B Exposure</div><div class="value" id="teamBExposure">0</div></div>
     </div>
 
-    <!-- Client Summary (existing) -->
+    <!-- Client Summary -->
     <div style="margin-top: 12px;">
         <h3 style="color: #8b9bb5; font-size: 14px; margin-bottom: 8px;">📋 Client P&L Summary</h3>
         <div class="table-wrap">
@@ -556,8 +555,12 @@
         renderClientSummary();
         renderSummary();
         updateFinalResults();
-        // Clear form fields (optional)
-        rateInput.value = ''; amountInput.value = ''; newCustomerInput.value = ''; customerSelect.value = ''; teamSelect.value = '';
+        // Clear form fields
+        rateInput.value = '';
+        amountInput.value = '';
+        newCustomerInput.value = '';
+        customerSelect.value = '';
+        teamSelect.value = '';
         alert(`✅ ${type} bet added!`);
     }
 
@@ -568,6 +571,21 @@
 
     layBetBtn.addEventListener('click', function() {
         addBetWithType('Lay');
+    });
+
+    // ─── KEYBOARD NAVIGATION (NEW) ───
+    rateInput.addEventListener('keydown', function(e) {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            amountInput.focus();
+        }
+    });
+
+    amountInput.addEventListener('keydown', function(e) {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            backBetBtn.focus();  // so pressing Enter again triggers Back bet
+        }
     });
 
     // ─── FILTER & CLEAR ───
